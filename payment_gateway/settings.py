@@ -61,6 +61,7 @@ PAYMENTS_OTP_EXPIRY_MINUTES = 10
 PAYMENTS_POLL_INTERVAL_SECONDS = 60
 PAYMENTS_UNKNOWN_AFTER_MINUTES = 30
 PAYMENTS_CLAIM_STALE_DAYS = 3
+
 # Adapters to load. Adding EcoCash/M-Pesa later = one line here.
 PAYMENTS_ADAPTERS = {
     "simulator": "payments.providers.simulator.SimulatorAdapter",
@@ -87,6 +88,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
 
 ROOT_URLCONF = 'payment_gateway.urls'
@@ -112,13 +114,25 @@ WSGI_APPLICATION = 'payment_gateway.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
+#DATABASES = {
+#    'default': {
+#        'ENGINE': 'django.db.backends.sqlite3',
+#        'NAME': BASE_DIR / 'db.sqlite3',
+#    }
+#}
 
+DATABASES = {
+   'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'railway',
+        'USER': 'postgres',
+        'PASSWORD': os.environ['PG_PASSWORD'],
+        'HOST': 'caboose.proxy.rlwy.net', 
+        'PORT': '45872',
+    }
+}  
+
+#postgresql://${{PGUSER}}:${{PGPASSWORD}}@${{RAILWAY_TCP_PROXY_DOMAIN}}:${{RAILWAY_TCP_PROXY_PORT}}/${{PGDATABASE}}
 
 # Password validation
 # https://docs.djangoproject.com/en/6.1/ref/settings/#auth-password-validators
