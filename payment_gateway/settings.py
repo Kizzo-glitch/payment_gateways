@@ -31,7 +31,7 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['127.0.0.1', 'https://paymentgateways-production.up.railway.app', 'paymentgateways-production.up.railway.app']
 
-CSRF_TRUSTED_ORIGINS = ['paymentgateways-production.up.railway.app']
+CSRF_TRUSTED_ORIGINS = ['https://paymentgateways-production.up.railway.app']
 
 
 # Application definition
