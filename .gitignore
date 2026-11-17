@@ -1,0 +1,19 @@
+# Secrets & Environment Variables
+.env
+
+# Database & Media
+db.sqlite3
+media/
+staticfiles/
+
+# Python & Virtual Environments
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+env/
+
+# macOS & Editor Files
+.DS_Store
+.vscode/
+.idea/
