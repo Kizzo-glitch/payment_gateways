@@ -80,7 +80,7 @@ class CpayThroughServiceTests(TestCase):
     """C-Pay has no status query, so a timeout must become a human review case."""
 
     def setUp(self):
-        m = MerchantAccount(party_ref="lender:lesedi", provider="cpay", merchant_code="CP-LESEDI",
+        m = MerchantAccount(status="verified", party_ref="lender:lesedi", provider="cpay", merchant_code="CP-LESEDI",
                             settlement_mode=SettlementMode.DIRECT)
         m.set_credentials(CREDS)
         m.save()
@@ -114,9 +114,9 @@ class CpayThroughServiceTests(TestCase):
             intent=intent, kind=ExceptionKind.UNKNOWN_OUTCOME).exists())
 
     def test_cpay_option2_refused_until_chaperone_confirms(self):
-        platform = MerchantAccount.objects.create(party_ref=settlement.platform_ref(),
+        platform = MerchantAccount.objects.create(status="verified", party_ref=settlement.platform_ref(),
                                                   provider="cpay", merchant_code="8970")
-        MerchantAccount.objects.create(party_ref="lender:thaba", provider="cpay",
+        MerchantAccount.objects.create(status="verified", party_ref="lender:thaba", provider="cpay",
                                        merchant_code="CP-THABA", parent=platform,
                                        settlement_mode=SettlementMode.SUB_MERCHANT)
         from payments.exceptions import CapabilityNotSupported

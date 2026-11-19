@@ -2,7 +2,7 @@
 from django.conf import settings
 
 DEFAULTS = {
-    "PAYMENTS_PLATFORM_PARTY_REF": "platform:fedha-grow",
+    "PAYMENTS_PLATFORM_PARTY_REF": "platform",
     "PAYMENTS_ALLOW_PLATFORM_SPLIT": False,
     "PAYMENTS_PROVIDER_PREFERENCE": ["cpay", "mpesa", "ecocash", "simulator", "manual"],
     "PAYMENTS_DEFAULT_CURRENCY": "LSL",

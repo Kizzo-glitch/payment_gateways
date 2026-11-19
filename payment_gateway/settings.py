@@ -27,9 +27,11 @@ SECRET_KEY = os.environ["SECRET_KEY"]
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Off unless DEBUG=1 is set (e.g. in your local .env). Never set it on Railway.
+DEBUG = os.environ.get("DEBUG", "") == "1"
 
-ALLOWED_HOSTS = ['127.0.0.1', 'https://paymentgateways-production.up.railway.app', 'paymentgateways-production.up.railway.app']
+
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'paymentgateways-production.up.railway.app']
 
 CSRF_TRUSTED_ORIGINS = ['https://paymentgateways-production.up.railway.app']
 
@@ -52,7 +54,7 @@ INSTALLED_APPS = [
 PAYMENTS_ENCRYPTION_KEY = os.environ["PAYMENTS_ENCRYPTION_KEY"]
 
 # The party_ref that identifies Fedha-Grow itself.
-PAYMENTS_PLATFORM_PARTY_REF = "platform:fedha-grow"
+PAYMENTS_PLATFORM_PARTY_REF = "platform"
 # Option 3 (platform collects, then pays the lender). OFF: funds would pass
 # through a Fedha-Grow wallet. Only switch on after CBL guidance.
 PAYMENTS_ALLOW_PLATFORM_SPLIT = False
@@ -116,13 +118,14 @@ WSGI_APPLICATION = 'payment_gateway.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
-#DATABASES = {
-#    'default': {
-#        'ENGINE': 'django.db.backends.sqlite3',
-#        'NAME': BASE_DIR / 'db.sqlite3',
-#    }
-#}
-
+'''
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
+}
+'''
 DATABASES = {
    'default': {
         'ENGINE': 'django.db.backends.postgresql',

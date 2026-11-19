@@ -18,6 +18,10 @@ class MerchantNotConfigured(PaymentError):
     """The payee has no usable merchant account at this provider."""
 
 
+class MerchantNotVerified(MerchantNotConfigured):
+    """The merchant exists but hasn't passed verification (or was disabled)."""
+
+
 class PlatformCustodyNotPermitted(PaymentError):
     """The settlement would put funds in a Fedha-Grow wallet (option 3),
     which is switched off. Fedha-Grow does not hold client funds."""

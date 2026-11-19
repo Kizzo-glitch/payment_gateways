@@ -121,3 +121,37 @@ sub-merchant code (`SubMerchantCode`) is our proposal; agree the real one.
 
 C-Pay has no status-query endpoint or webhooks. If a confirm call times out,
 the payment goes to `unknown` and opens a review case rather than guessing.
+
+## Client API (v1)
+
+Other applications (Fedha-Grow first) call the gateway over HTTPS with an API key.
+
+**Create a key** (once per app and environment; shown only once):
+
+```bash
+python manage.py create_api_client "Fedha-Grow (local)"
+python manage.py create_api_client "Fedha-Grow (local)" --rotate   # replace a key
+```
+
+Send it on every request: `Authorization: Bearer <key>`. Errors always look like
+`{"error": {"code": "...", "message": "..."}}`.
+
+| Method | Path | What it does |
+|---|---|---|
+| GET | `/api/v1/health/` | No key needed. `{"status": "ok"}` |
+| POST | `/api/v1/merchants/` | Register or re-register a merchant. Body: `party_ref`, `provider`, `mode` (`direct` / `sub_merchant`), `merchant_code`, `display_name`, `credentials` (`client_code`, `client_secret`; direct mode only). 201 new, 200 replaced. Status starts `pending_verification`. |
+| GET | `/api/v1/merchants/<id>/` | Status. Credentials are never returned. |
+| POST | `/api/v1/merchants/<id>/verify/` | Body `{"msisdn": "<owner's own wallet>"}`. Starts a M1.00 test payment from that wallet into the merchant account; the owner gets an OTP. |
+| POST | `/api/v1/merchants/<id>/verify/confirm/` | Body `{"otp": "1234"}`. Status becomes `verified` or `failed`. |
+| POST | `/api/v1/merchants/<id>/disable/` | Stop using it; credentials are wiped. |
+| POST | `/api/v1/collections/` | A payer pays a **verified** merchant. Body: `source_ref`, `payer_ref`, `payee_ref` (the merchant's party_ref), `payer_account` (payer's wallet number), `amount` (e.g. `"450.00"`), `reference`, `idempotency_key`, `provider`, optional `narration`. With C-Pay the payer gets an OTP (`required_action: "otp"`). Repeating the same `idempotency_key` returns the same collection, so retries after a timeout are safe. |
+| POST | `/api/v1/collections/<id>/otp/` | Body `{"otp": "1234"}`. Returns the final state: `succeeded` or `failed`. |
+| GET | `/api/v1/collections/<id>/` | Current state (asks the provider if it can). |
+
+Only `verified` merchants can collect payments. Each API key sees only its own
+merchants. For sub-merchants, first register your own account with
+`party_ref: "platform"` (direct mode). With the simulator providers, the
+verify response includes `test_otp` (a real provider SMSes it instead).
+
+`DEBUG` is off unless the environment has `DEBUG=1`. Set it in your local
+`.env` only, never on Railway.

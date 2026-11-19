@@ -85,10 +85,10 @@ class SettlementOptionsTests(TestCase):
             settlement.resolve("simulator", "lender:lesedi")
 
     def test_provider_without_sub_merchant_support_rejects_option2(self):
-        MerchantAccount.objects.create(party_ref=settlement.platform_ref(), provider="cpay",
+        MerchantAccount.objects.create(status="verified", party_ref=settlement.platform_ref(), provider="cpay",
                                        merchant_code="8970")
         platform = MerchantAccount.objects.get(provider="cpay", merchant_code="8970")
-        MerchantAccount.objects.create(party_ref="lender:thaba", provider="cpay",
+        MerchantAccount.objects.create(status="verified", party_ref="lender:thaba", provider="cpay",
                                        merchant_code="CP-THABA", parent=platform,
                                        settlement_mode=SettlementMode.SUB_MERCHANT)
         with self.assertRaises(CapabilityNotSupported):

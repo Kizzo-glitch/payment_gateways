@@ -8,7 +8,7 @@ from django.test.utils import override_settings
 
 from . import conf
 from .exceptions import PlatformCustodyNotPermitted
-from .models import (MerchantAccount, PaymentAttempt, PaymentIntent, ProviderEvent,
+from .models import (MerchantAccount, MerchantStatus, PaymentAttempt, PaymentIntent, ProviderEvent,
                      ReconciliationException, SettlementMode, SimTransaction, SimWallet)
 from .providers.registry import get_adapter
 from .providers.simulator import AsyncSimulatorAdapter
@@ -65,6 +65,8 @@ def seed():
             if own_creds:
                 m.set_credentials({"client_code": f"C-{code}", "client_secret": f"{code}-secret"})
             m.save()
+    # The demo accounts are pre-verified (real ones verify with a M1 payment).
+    MerchantAccount.objects.filter(provider__in=SIM_PROVIDERS).update(status=MerchantStatus.VERIFIED)
 
 
 def balances():

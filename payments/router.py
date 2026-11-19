@@ -27,13 +27,15 @@ def _channel(adapter):
 
 
 def choose(capability: Capability, merchant_party_ref: str, *, provider: str | None = None,
-           payer_channels=None, payee_channels=None) -> Route:
+           payer_channels=None, payee_channels=None, client=None,
+           require_verified: bool = True) -> Route:
     """merchant_party_ref is the lender: the payee for a collection, the
     payer for a disbursement."""
     if provider:  # explicit choice: errors surface, no silent fallback
         adapter = get_adapter(provider)
         adapter.require(capability)
-        return Route(provider, settlement.resolve(provider, merchant_party_ref))
+        return Route(provider, settlement.resolve(provider, merchant_party_ref, client,
+                                                  require_verified))
 
     adapters = all_adapters()
     order = [c for c in conf.get("PAYMENTS_PROVIDER_PREFERENCE") if c in adapters]
@@ -52,7 +54,8 @@ def choose(capability: Capability, merchant_party_ref: str, *, provider: str | N
         if payee_channels is not None and channel not in payee_channels:
             continue
         try:
-            return Route(code, settlement.resolve(code, merchant_party_ref), notes)
+            return Route(code, settlement.resolve(code, merchant_party_ref, client,
+                                                  require_verified), notes)
         except (MerchantNotConfigured, CapabilityNotSupported, PlatformCustodyNotPermitted) as exc:
             notes.append(f"{code}: {exc}")
 

@@ -67,14 +67,16 @@ class PaymentService:
     @classmethod
     def collect(cls, *, source_ref, payer_ref, payee_ref, amount, reference, idempotency_key,
                 payer_account="", currency=None, narration="", provider=None,
-                payer_channels=None, payee_channels=None, metadata=None) -> PaymentIntent:
-        """Borrower pays lender. Funds settle to the lender (never Fedha-Grow)."""
+                payer_channels=None, payee_channels=None, metadata=None, client=None,
+                require_verified=True) -> PaymentIntent:
+        """Borrower pays lender. Funds settle to the lender (never the platform)."""
         return cls._start(PaymentKind.COLLECTION, Capability.COLLECT, locals())
 
     @classmethod
     def disburse(cls, *, source_ref, payer_ref, payee_ref, amount, reference, idempotency_key,
                  payee_account="", currency=None, narration="", provider=None,
-                 payer_channels=None, payee_channels=None, metadata=None) -> PaymentIntent:
+                 payer_channels=None, payee_channels=None, metadata=None, client=None,
+                 require_verified=True) -> PaymentIntent:
         """Lender pays borrower, from the lender's own account."""
         return cls._start(PaymentKind.DISBURSEMENT, Capability.DISBURSE, locals())
 
@@ -95,14 +97,18 @@ class PaymentService:
 
         # The lender is the merchant side: payee for collections, payer for disbursements.
         merchant_party = args["payee_ref"] if kind == PaymentKind.COLLECTION else args["payer_ref"]
+        client = args.get("client")
         route = router.choose(capability, merchant_party, provider=args.get("provider"),
                               payer_channels=args.get("payer_channels"),
-                              payee_channels=args.get("payee_channels"))
+                              payee_channels=args.get("payee_channels"),
+                              client=client,
+                              require_verified=args.get("require_verified", True))
         ctx = route.merchant
         merchant_obj = None
         if ctx:
             merchant_obj = MerchantAccount.objects.filter(
-                provider=route.provider, merchant_code=ctx.settles_to).first()
+                provider=route.provider, merchant_code=ctx.settles_to,
+                **settlement._client_filter(client)).first()
 
         metadata = dict(args.get("metadata") or {})
         if route.notes:
@@ -110,7 +116,7 @@ class PaymentService:
 
         with transaction.atomic():
             intent = PaymentIntent.objects.create(
-                kind=kind, source_ref=args["source_ref"], payer_ref=args["payer_ref"],
+                client=client, kind=kind, source_ref=args["source_ref"], payer_ref=args["payer_ref"],
                 payee_ref=args["payee_ref"], payer_account=args.get("payer_account", ""),
                 payee_account=args.get("payee_account", ""), amount=amount, currency=currency,
                 reference=args["reference"], narration=args.get("narration", ""),
@@ -260,7 +266,8 @@ class PaymentService:
         if intent.provider == router.MANUAL:
             return None
         party = intent.payee_ref if intent.kind == PaymentKind.COLLECTION else intent.payer_ref
-        ctx = settlement.resolve(intent.provider, party)
+        ctx = settlement.resolve(intent.provider, party, intent.client,
+                                 require_verified=not intent.metadata.get("verification"))
         if ctx.settles_to != intent.settles_to:
             raise PaymentError("Settlement destination changed since this payment started")
         return ctx

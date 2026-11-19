@@ -10,12 +10,65 @@ Design rules:
 - Money never settles to Fedha-Grow unless settlement mode PLATFORM_SPLIT
   (option 3) is explicitly allowed in settings.
 """
+import hashlib
+import secrets
 import uuid
 
 from django.db import models
 from django.utils import timezone
 
 from . import crypto
+
+
+class ApiClient(models.Model):
+    """
+    An application allowed to call the gateway's API (Fedha-Grow is the first).
+    Only a SHA-256 hash of the key is stored; the key itself is shown once,
+    when the client is created (manage.py create_api_client).
+    """
+
+    KEY_PREFIX = "pgk_"
+
+    name = models.CharField(max_length=120, unique=True)
+    key_prefix = models.CharField(max_length=16, help_text="First characters, to recognise a key.")
+    key_hash = models.CharField(max_length=64, unique=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.key_prefix}…)"
+
+    @staticmethod
+    def hash_key(raw_key: str) -> str:
+        return hashlib.sha256(raw_key.encode()).hexdigest()
+
+    @classmethod
+    def create_with_key(cls, name):
+        """Create a client and return (client, raw_key). Store the key now:
+        it can't be recovered later."""
+        raw = cls.KEY_PREFIX + secrets.token_urlsafe(32)
+        client = cls.objects.create(name=name, key_prefix=raw[:12], key_hash=cls.hash_key(raw))
+        return client, raw
+
+    def rotate_key(self):
+        raw = self.KEY_PREFIX + secrets.token_urlsafe(32)
+        self.key_prefix, self.key_hash = raw[:12], self.hash_key(raw)
+        self.save(update_fields=["key_prefix", "key_hash"])
+        return raw
+
+    @classmethod
+    def authenticate(cls, raw_key: str):
+        if not raw_key or not raw_key.startswith(cls.KEY_PREFIX):
+            return None
+        return cls.objects.filter(key_hash=cls.hash_key(raw_key), is_active=True).first()
+
+
+class MerchantStatus(models.TextChoices):
+    PENDING = "pending_verification", "Pending verification"
+    VERIFIED = "verified", "Verified"
+    FAILED = "failed", "Verification failed"
+    DISABLED = "disabled", "Disabled"
 
 
 class SettlementMode(models.TextChoices):
@@ -35,8 +88,11 @@ class MerchantAccount(models.Model):
     """A merchant identity at one provider. Fedha-Grow's own platform account
     is one of these; each lender has one per provider it uses."""
 
+    client = models.ForeignKey(ApiClient, null=True, blank=True, on_delete=models.PROTECT,
+                               related_name="merchants",
+                               help_text="The API client that registered this merchant.")
     party_ref = models.CharField(max_length=64, db_index=True,
-                                 help_text='e.g. "lender:12" or "platform:fedha-grow"')
+                                 help_text='e.g. "lender:12", or "platform" for the client itself')
     provider = models.CharField(max_length=32)
     merchant_code = models.CharField(max_length=64)
     display_name = models.CharField(max_length=120, blank=True)
@@ -47,13 +103,26 @@ class MerchantAccount(models.Model):
                                help_text="Platform account, for sub-merchants (option 2).")
     credentials_encrypted = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
+    status = models.CharField(max_length=24, choices=MerchantStatus.choices,
+                              default=MerchantStatus.PENDING, db_index=True)
+    verified_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.CharField(max_length=255, blank=True)
+    verification_intent = models.ForeignKey("PaymentIntent", null=True, blank=True,
+                                            on_delete=models.SET_NULL, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["provider", "merchant_code"],
-                                    name="uniq_provider_merchant_code"),
+            models.UniqueConstraint(fields=["client", "provider", "merchant_code"],
+                                    name="uniq_client_provider_merchant_code"),
+            models.UniqueConstraint(fields=["client", "party_ref", "provider"],
+                                    name="uniq_client_party_provider"),
         ]
+
+    @property
+    def is_usable(self):
+        return self.is_active and self.status == MerchantStatus.VERIFIED
 
     def __str__(self):
         return f"{self.display_name or self.party_ref} @ {self.provider} ({self.merchant_code})"
@@ -83,6 +152,8 @@ class IntentStatus(models.TextChoices):
 
 class PaymentIntent(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    client = models.ForeignKey(ApiClient, null=True, blank=True, on_delete=models.PROTECT,
+                               related_name="intents")
     kind = models.CharField(max_length=16, choices=PaymentKind.choices)
     source_ref = models.CharField(max_length=64, db_index=True,
                                   help_text='What this pays for, e.g. "repayment:4821".')

@@ -1,14 +1,14 @@
 from django.contrib import admin
 
-from .models import (MerchantAccount, PaymentAttempt, PaymentIntent, ProviderEvent,
+from .models import (ApiClient, MerchantAccount, PaymentAttempt, PaymentIntent, ProviderEvent,
                      ReconciliationException, SimTransaction, SimWallet)
 
 
 @admin.register(MerchantAccount)
 class MerchantAccountAdmin(admin.ModelAdmin):
-    list_display = ("display_name", "party_ref", "provider", "merchant_code",
-                    "settlement_mode", "parent", "is_active")
-    list_filter = ("provider", "settlement_mode", "is_active")
+    list_display = ("display_name", "client", "party_ref", "provider", "merchant_code",
+                    "settlement_mode", "status", "is_active")
+    list_filter = ("client", "provider", "settlement_mode", "status", "is_active")
     search_fields = ("party_ref", "merchant_code", "display_name")
     exclude = ("credentials_encrypted",)  # set credentials in code, never in a form
 
@@ -59,3 +59,13 @@ class ReconciliationExceptionAdmin(admin.ModelAdmin):
 
 admin.site.register(SimWallet)
 admin.site.register(SimTransaction)
+
+
+@admin.register(ApiClient)
+class ApiClientAdmin(admin.ModelAdmin):
+    """Create clients with `manage.py create_api_client`; keys are never shown here."""
+    list_display = ("name", "key_prefix", "is_active", "created_at", "last_used_at")
+    readonly_fields = ("key_prefix", "key_hash", "created_at", "last_used_at")
+
+    def has_add_permission(self, request):
+        return False
